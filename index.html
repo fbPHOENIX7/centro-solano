@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f3ef">
+  <title>Centro Solano Territorios</title>
+  <link rel="stylesheet" href="src/styles/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">CENTRO SOLANO TERRITORIOS</div>
+    <button class="menu-button" id="menuButton" aria-label="Abrir menú" aria-expanded="false">☰</button>
+    <nav class="menu" id="menu" aria-hidden="true">
+      <a href="#salidas">Salidas</a>
+      <a href="#proximamente">Próximamente</a>
+      <a href="docs/mantenimiento.md">Mantenimiento</a>
+    </nav>
+  </header>
+
+  <main class="page" id="salidas">
+    <div class="date-row">
+      <h1 id="currentDate">Lunes 14 de septiembre</h1>
+    </div>
+
+    <section class="content-card">
+      <h2>Salidas de esta semana:</h2>
+      <img src="public/images/salidas-semana-2026-09-15.png" alt="Programa de salidas de esta semana" class="weekly-image">
+    </section>
+
+    <section class="placeholder" id="proximamente">
+      <span>Próximamente</span>
+      <p>Este espacio queda preparado para las próximas funciones del proyecto.</p>
+    </section>
+  </main>
+
+  <script src="src/scripts/app.js"></script>
+</body>
+</html>
