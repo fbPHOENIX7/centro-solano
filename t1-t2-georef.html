@@ -5,31 +5,111 @@
 <title>Centro Solano · T1/T2 georreferenciados</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,sans-serif}.panel{position:absolute;z-index:1000;top:14px;left:14px;background:#fff;border:1px solid #ddd;border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px #0002;width:300px}.panel h2{margin:0 0 4px;font-size:18px}.panel p{margin:5px 0;color:#667085;font-size:12px;line-height:1.4}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tag{padding:6px 9px;border-radius:8px;font-weight:800;font-size:12px}.t1{background:#d7dce2;border:1px solid #6b7280}.t2{background:#bfe8ce;border:1px solid #168052}.status{margin-top:10px;padding:8px 10px;background:#fff7e6;border:1px solid #f0d49a;border-radius:9px;font-size:11px;color:#795b18}.leaflet-tooltip{font-weight:800}.block{transition:.15s}.block:hover{fill-opacity:.8}.done{fill:#25a96a!important}.pending{fill:#d8c5e8!important}
+html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,sans-serif}.panel{position:absolute;z-index:1000;top:14px;left:14px;background:#fff;border:1px solid #ddd;border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px #0002;width:315px}.panel h2{margin:0 0 4px;font-size:18px}.panel p{margin:5px 0;color:#667085;font-size:12px;line-height:1.4}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tag{padding:6px 9px;border-radius:8px;font-weight:800;font-size:12px}.t1{background:#d7dce2;border:1px solid #6b7280}.t2{background:#bfe8ce;border:1px solid #168052}.status{margin-top:10px;padding:8px 10px;background:#fff7e6;border:1px solid #f0d49a;border-radius:9px;font-size:11px;color:#795b18}.status.ok{background:#edf9f2;border-color:#a7dfbf;color:#17623b}.status.err{background:#fff0f0;border-color:#efb0b0;color:#8a2525}.leaflet-tooltip{font-weight:800}.block{transition:.15s}.block:hover{fill-opacity:.82}.done{fill:#25a96a!important}.candidate{fill:#4b5563;fill-opacity:.14;stroke:#4b5563;stroke-width:1.5}.real{fill-opacity:.55}.ref{stroke-dasharray:6 5}
 </style></head>
 <body>
 <div id="map"></div>
-<div class="panel"><h2>T1 + T2 · primera georreferenciación</h2><p>Base cartográfica real de OpenStreetMap. Las formas están trazadas siguiendo la orientación de las manzanas de la zona y se presentan como <b>borrador de validación</b> contra el plano original.</p><div class="legend"><span class="tag t1">T1 · 5 manzanas</span><span class="tag t2">T2 · 6 manzanas</span></div><div class="status">Criterio de letras: izquierda → derecha / arriba → abajo. Hacé clic en una manzana para marcarla completada.</div></div>
+<div class="panel">
+<h2>T1 + T2 · georreferenciación</h2>
+<p>Base cartográfica real de OpenStreetMap. Ahora la capa de trabajo intenta reconstruir las <b>manzanas reales</b> a partir de la trama vial, en lugar de usar rectángulos dibujados a mano.</p>
+<div class="legend"><span class="tag t1">T1 · 5 manzanas</span><span class="tag t2">T2 · 6 manzanas</span></div>
+<div id="status" class="status">Cargando la trama vial de OSM…</div>
+<p><b>Criterio:</b> izquierda → derecha / arriba → abajo. Hacé clic en una manzana para marcarla completada.</p>
+</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
 <script>
-const map=L.map('map').setView([-34.7793,-58.3110],17);
+const map=L.map('map').setView([-34.77835,-58.3099],17);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const statusEl=document.getElementById('status');
 const saved=JSON.parse(localStorage.getItem('cst-status')||'{}');
-// Borrador construido sobre la orientación real de la trama vial alrededor de 893/893 Bis/894 y Av. Monteverde.
-const shapes={
-'T1A':[[-34.77795,-58.31335],[-34.77782,-58.31295],[-34.77802,-58.31272],[-34.77822,-58.31295]],
-'T1B':[[-34.77822,-58.31295],[-34.77802,-58.31272],[-34.77842,-58.31195],[-34.77868,-58.31220],[-34.77855,-58.31272]],
-'T1C':[[-34.77802,-58.31272],[-34.77782,-58.31230],[-34.77818,-58.31165],[-34.77842,-58.31195]],
-'T1D':[[-34.77868,-58.31220],[-34.77842,-58.31195],[-34.77882,-58.31118],[-34.77905,-58.31142]],
-'T1E':[[-34.77842,-58.31195],[-34.77818,-58.31165],[-34.77855,-58.31092],[-34.77882,-58.31118]],
-'T2A':[[-34.77760,-58.31230],[-34.77740,-58.31162],[-34.77788,-58.31130],[-34.77818,-58.31165],[-34.77782,-58.31230]],
-'T2B':[[-34.77740,-58.31162],[-34.77720,-58.31088],[-34.77772,-58.31055],[-34.77788,-58.31130]],
-'T2C':[[-34.77720,-58.31088],[-34.77700,-58.31018],[-34.77748,-58.30986],[-34.77772,-58.31055]],
-'T2D':[[-34.77818,-58.31165],[-34.77788,-58.31130],[-34.77820,-58.31070],[-34.77855,-58.31092]],
-'T2E':[[-34.77788,-58.31130],[-34.77772,-58.31055],[-34.77802,-58.30998],[-34.77820,-58.31070]],
-'T2F':[[-34.77772,-58.31055],[-34.77748,-58.30986],[-34.77778,-58.30940],[-34.77802,-58.30998]]
+
+// Puntos de referencia provisionales tomados del primer trazado, usados SOLO para
+// encontrar la manzana OSM más cercana. La geometría visible final proviene de OSM.
+const targets={
+ T1A:[-34.77795,-58.31335],T1B:[-34.77822,-58.31255],T1C:[-34.77802,-58.31195],T1D:[-34.77868,-58.31155],T1E:[-34.77842,-58.31105],
+ T2A:[-34.77760,-58.31175],T2B:[-34.77740,-58.31115],T2C:[-34.77720,-58.31055],T2D:[-34.77818,-58.31115],T2E:[-34.77788,-58.31075],T2F:[-34.77772,-58.31035]
 };
-const layers={};
-Object.entries(shapes).forEach(([id,coords])=>{const territory=id[1];layers[id]=L.polygon(coords,{className:'block',color:territory==='1'?'#59636f':'#168052',weight:2,fillColor:territory==='1'?'#d7dce2':'#bfe8ce',fillOpacity:.62}).addTo(map).bindTooltip(id,{sticky:true});layers[id].on('click',()=>{saved[id]=!saved[id];localStorage.setItem('cst-status',JSON.stringify(saved));layers[id].setStyle({fillColor:saved[id]?'#25a96a':(territory==='1'?'#d7dce2':'#bfe8ce'),color:saved[id]?'#168052':(territory==='1'?'#59636f':'#168052')});layers[id].bindTooltip(saved[id]?id+' · COMPLETADA':id,{sticky:true});});if(saved[id])layers[id].setStyle({fillColor:'#25a96a',color:'#168052'})});
-L.marker([-34.7793,-58.3110]).addTo(map).bindPopup('<b>Zona T1/T2</b><br>Referencia de trabajo alrededor de Calle 893 / 893 Bis / 894 y Av. Monteverde.');
+const targetLayer=L.layerGroup().addTo(map);
+const realLayer=L.layerGroup().addTo(map);
+const selectedLayer=L.layerGroup().addTo(map);
+const oldTargetLayer=L.layerGroup();
+
+Object.entries(targets).forEach(([id,p])=>L.circleMarker(p,{radius:4,color:'#d97706',weight:1,fillColor:'#f59e0b',fillOpacity:.35}).bindTooltip(id+' · punto de búsqueda').addTo(oldTargetLayer));
+
+function setStyleDone(layer,id,territory){
+ const done=!!saved[id];
+ layer.setStyle({fillColor:done?'#25a96a':territory==='1'?'#d7dce2':'#bfe8ce',color:done?'#168052':territory==='1'?'#59636f':'#168052',fillOpacity:.58,weight:2});
+}
+
+function centerOf(poly){
+ try{return turf.centroid(poly).geometry.coordinates.reverse();}catch(e){return null}
+}
+
+function areaM2(poly){try{return turf.area(poly)}catch(e){return 0}}
+
+async function loadRealBlocks(){
+ const bbox='-34.7802,-58.3140,-34.7758,-58.3070';
+ const query=`[out:json][timeout:25];way["highway"]["name"](${bbox});out geom;`;
+ const url='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query);
+ try{
+   const res=await fetch(url,{headers:{'Accept':'application/json'}});
+   if(!res.ok)throw new Error('Overpass HTTP '+res.status);
+   const data=await res.json();
+   const lines=[];
+   for(const w of data.elements||[]){
+     if(!w.geometry||w.geometry.length<2)continue;
+     const bad=['footway','path','cycleway','steps','service','pedestrian','track','construction'];
+     if(bad.includes(w.tags?.highway))continue;
+     const coords=w.geometry.map(n=>[n.lon,n.lat]);
+     lines.push(turf.lineString(coords,{name:w.tags?.name||'',highway:w.tags?.highway||''}));
+   }
+   const fc=turf.featureCollection(lines);
+   const polys=turf.polygonize(fc);
+   const candidates=[];
+   for(const f of polys.features){
+     const a=areaM2(f); if(a<700||a>30000)continue;
+     const c=centerOf(f); if(!c)continue;
+     candidates.push({f,c,a});
+   }
+   if(!candidates.length)throw new Error('No se detectaron polígonos cerrados');
+   candidates.forEach(({f,c,a},i)=>{
+     L.geoJSON(f,{style:{className:'candidate',color:'#475467',weight:1,fillColor:'#98a2b3',fillOpacity:.10}}).bindTooltip('Manzana OSM candidata · '+Math.round(a)+' m²',{sticky:true}).addTo(realLayer);
+   });
+   // Para cada manzana del plano buscamos el polígono OSM más cercano a su punto de referencia.
+   const used=new Set();
+   const pairs=[];
+   for(const [id,p] of Object.entries(targets)){
+     const pt=turf.point([p[1],p[0]]);
+     let best=null;
+     for(let i=0;i<candidates.length;i++){
+       if(used.has(i))continue;
+       const d=turf.distance(pt,turf.point([candidates[i].c[1],candidates[i].c[0]]),{units:'meters'});
+       if(!best||d<best.d)best={i,d};
+     }
+     if(best){used.add(best.i);pairs.push({id,candidate:candidates[best.i],distance:best.d});}
+   }
+   // Ocultamos las candidatas generales y dejamos visibles las 11 seleccionadas.
+   realLayer.clearLayers();
+   pairs.forEach(({id,candidate,distance})=>{
+     const territory=id[1];
+     const layer=L.geoJSON(candidate.f,{style:{className:'block real',color:territory==='1'?'#59636f':'#168052',weight:2,fillColor:territory==='1'?'#d7dce2':'#bfe8ce',fillOpacity:.58}}).addTo(selectedLayer);
+     setStyleDone(layer,id,territory);
+     layer.bindTooltip(id,{sticky:true});
+     layer.on('click',()=>{saved[id]=!saved[id];localStorage.setItem('cst-status',JSON.stringify(saved));setStyleDone(layer,id,territory);layer.bindTooltip(saved[id]?id+' · COMPLETADA':id,{sticky:true});});
+     const center=turf.centroid(candidate.f).geometry.coordinates;
+     L.marker([center[1],center[0]],{interactive:false,opacity:.9}).bindTooltip(id,{permanent:true,direction:'center',className:'label-'+territory}).addTo(selectedLayer);
+   });
+   statusEl.className='status ok';
+   statusEl.innerHTML='<b>OSM cargado.</b> Se detectaron '+candidates.length+' manzanas cerradas y se seleccionaron 11 candidatas para T1/T2. La geometría visible ya no es rectangular dibujada a mano.';
+   oldTargetLayer.addTo(map);
+ }catch(err){
+   console.error(err);
+   statusEl.className='status err';
+   statusEl.innerHTML='<b>No se pudo consultar OSM automáticamente.</b> Se mantiene la referencia de búsqueda para no inventar geometrías. Error: '+(err.message||err);
+   oldTargetLayer.addTo(map);
+ }
+}
+loadRealBlocks();
+L.control.scale({imperial:false}).addTo(map);
 </script></body></html>
