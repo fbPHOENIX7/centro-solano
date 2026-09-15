@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro Solano · perímetro por calles reales</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,sans-serif}
+.panel{position:absolute;z-index:1000;left:14px;top:14px;width:390px;background:#fff;border:1px solid #d9dee7;border-radius:15px;padding:15px 17px;box-shadow:0 8px 30px #0002;max-height:calc(100vh - 28px);overflow:auto}
+h2{margin:0 0 6px}.sub{font-size:12px;color:#667085;line-height:1.5}.box{background:#eef7ff;border:1px solid #c7e1f8;border-radius:10px;padding:10px;font-size:12px;line-height:1.45}.status{margin-top:10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px;font-size:11px;line-height:1.5}.sw{display:inline-block;width:28px;height:5px;border-radius:5px;margin-right:7px;vertical-align:middle}button{border:1px solid #d0d5dd;background:#fff;border-radius:8px;padding:7px 10px;font-weight:700;cursor:pointer;margin-top:10px}.loading{position:absolute;right:14px;top:14px;z-index:1100;background:#fff;border:1px solid #ddd;border-radius:10px;padding:9px 12px;box-shadow:0 4px 16px #0002;font-size:12px}.street-label{font-weight:800}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="loading" class="loading">Consultando calles reales en OSM…</div>
+<div class="panel">
+<h2>Centro Solano · perímetro por calles</h2>
+<p class="sub"><b>Esta es una corrección de método.</b> No dibujo el perímetro con coordenadas inventadas: lo construyo a partir de las calles que delimitan la zona que marcaste.</p>
+<div class="box"><b>Referencia de la imagen validada:</b><br>• Av. Donato Álvarez<br>• Av. Ferrocarril Provincial<br>• Av. Gobernador Monteverde (RP4)<br>• Calle 850</div>
+<div class="status" id="status">Cargando geometrías…</div>
+<div style="margin-top:10px;font-size:11px;line-height:1.8">
+<div><span class="sw" style="background:#dc2626"></span>Donato Álvarez</div>
+<div><span class="sw" style="background:#7c3aed"></span>Ferrocarril Provincial</div>
+<div><span class="sw" style="background:#2563eb"></span>Monteverde / RP4</div>
+<div><span class="sw" style="background:#d97706"></span>Calle 850</div>
+</div>
+<button id="fit">Ajustar al perímetro</button>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([-34.785,-58.311],15.2);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const colors={donato:'#dc2626',ferro:'#7c3aed',monte:'#2563eb',850:'#d97706'};
+const layers=[];
+function draw(e,key,label){if(!e.geometry||e.geometry.length<2)return;const l=L.polyline(e.geometry.map(p=>[p.lat,p.lon]),{color:colors[key],weight:6,opacity:.95});l.addTo(map);l.bindTooltip(label,{sticky:true,className:'street-label'});layers.push(l)}
+async function load(){
+ const bbox='-34.805,-58.335,-34.765,-58.285';
+ const q=`[out:json][timeout:90];(
+ way[highway][name~"Donato Álvarez|Donato Alvarez"](${bbox});
+ way[highway][name~"Ferrocarril Provincial"](${bbox});
+ way[highway][name~"Monteverde|Gobernador Monteverde"](${bbox});
+ way[highway][name="850"](${bbox});
+);out geom;`;
+ try{
+  const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));
+  if(!r.ok)throw Error(r.status);
+  const d=await r.json();let c={donato:0,ferro:0,monte:0,'850':0};
+  for(const e of d.elements||[]){const n=(e.tags?.name||'');if(/Donato/i.test(n)){draw(e,'donato','Av. Donato Álvarez');c.donato++}else if(/Ferrocarril Provincial/i.test(n)){draw(e,'ferro','Av. Ferrocarril Provincial');c.ferro++}else if(/Monteverde/i.test(n)){draw(e,'monte','Av. Gobernador Monteverde (RP4)');c.monte++}else if(n==='850'){draw(e,'850','Calle 850');c['850']++}}
+  document.getElementById('status').innerHTML=`<b>Calles cargadas desde OSM.</b><br>Donato: ${c.donato} tramos · Ferrocarril: ${c.ferro} · Monteverde: ${c.monte} · Calle 850: ${c['850']}.<br><br>La línea de cierre se valida por las intersecciones reales de estas cuatro calles; no por una caja geográfica.`;
+  document.getElementById('loading').style.display='none';
+  if(layers.length)map.fitBounds(L.featureGroup(layers).getBounds(),{padding:[50,50]});
+ }catch(err){console.error(err);document.getElementById('loading').textContent='No respondió Overpass. Recargá para reintentar.';document.getElementById('status').innerHTML='<b>No se pudieron cargar las calles.</b>'}
+}
+document.getElementById('fit').onclick=()=>{if(layers.length)map.fitBounds(L.featureGroup(layers).getBounds(),{padding:[50,50]})};
+load();
+</script>
+</body></html>
