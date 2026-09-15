@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro Solano · Perímetro territorial</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,sans-serif;background:#eef2f6}
+.panel{position:absolute;z-index:1000;left:14px;top:14px;width:340px;background:#fff;border:1px solid #d9dee7;border-radius:15px;padding:15px 17px;box-shadow:0 8px 30px #0002;max-height:calc(100vh - 28px);overflow:auto}
+h2{margin:0 0 5px;font-size:19px}.sub{font-size:12px;color:#667085;line-height:1.45;margin:0 0 11px}
+.legend{display:grid;gap:7px;font-size:12px;margin:10px 0}.row{display:flex;align-items:center;gap:8px}.sw{width:28px;height:5px;border-radius:5px;display:inline-block}.north{background:#fff7e6;border:1px solid #efcf8b;border-radius:9px;padding:9px;font-size:11px;color:#795b18;margin-top:10px}
+.status{background:#eef7ff;border:1px solid #c7e1f8;border-radius:9px;padding:9px;font-size:11px;color:#315a78;margin-top:10px}
+button{border:1px solid #d0d5dd;background:#fff;border-radius:8px;padding:7px 10px;font-weight:700;cursor:pointer}button:hover{background:#f5f7fa}
+.loading{position:absolute;right:14px;top:14px;z-index:1100;background:#fff;border:1px solid #ddd;border-radius:10px;padding:9px 12px;box-shadow:0 4px 16px #0002;font-size:12px}
+.border-label{background:#fff;border:1px solid #555;border-radius:6px;padding:3px 6px;font-weight:800;font-size:11px;box-shadow:0 2px 6px #0002}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="loading" class="loading">Buscando bordes reales en OpenStreetMap…</div>
+<div class="panel">
+<h2>Centro Solano · perímetro</h2>
+<p class="sub"><b>Primero delimitamos.</b> Todavía no hay manzanas ni letras. Esta vista sirve para comprobar que el área de los 67 territorios coincide con el plano original.</p>
+<div class="legend">
+<div class="row"><span class="sw" style="background:#d97706"></span><b>Av. Donato Álvarez</b></div>
+<div class="row"><span class="sw" style="background:#dc2626"></span><b>Av. San Martín</b></div>
+<div class="row"><span class="sw" style="background:#2563eb"></span><b>Arroyo Las Piedras</b></div>
+<div class="row"><span class="sw" style="background:#7c3aed"></span><b>Ferrocarril Provincial / borde occidental</b></div>
+</div>
+<div class="north"><b>Referencia del plano:</b> el norte está hacia la derecha en el dibujo original. Para este mapa no rotamos OSM: usamos los nombres reales de las calles para ubicar cada borde.</div>
+<div class="status" id="status">Cargando geometrías…</div>
+<div style="margin-top:10px"><button id="fit">Ajustar al perímetro</button></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([-34.779,-58.309],15.7);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const layers=[]; const colors={donato:'#d97706',sanmartin:'#dc2626',arroyo:'#2563eb',ferrocarril:'#7c3aed'};
+function addWay(e,key,label){if(!e.geometry||e.geometry.length<2)return;const pts=e.geometry.map(p=>[p.lat,p.lon]);const l=L.polyline(pts,{color:colors[key],weight:5,opacity:.9});l.addTo(map);l.bindTooltip(label,{sticky:true,className:'border-label'});layers.push(l)}
+async function load(){
+ const bbox='-34.795,-58.335,-34.765,-58.285';
+ const q=`[out:json][timeout:60];(way[highway][name~"Donato Álvarez|Donato Alvarez"](${bbox});way[highway][name~"San Martín|San Martin"](${bbox});way[waterway][name~"Las Piedras"](${bbox});way[railway][name~"Ferrocarril Provincial"](${bbox}););out geom;`;
+ try{
+  const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));
+  if(!r.ok)throw new Error('Overpass '+r.status);
+  const d=await r.json();let counts={donato:0,sanmartin:0,arroyo:0,ferrocarril:0};
+  for(const e of d.elements||[]){const n=(e.tags&&e.tags.name)||'';if(/Donato/i.test(n)){addWay(e,'donato','Av. Donato Álvarez');counts.donato++}else if(/San Martín|San Martin/i.test(n)){addWay(e,'sanmartin','Av. San Martín');counts.sanmartin++}else if(/Las Piedras/i.test(n)){addWay(e,'arroyo','Arroyo Las Piedras');counts.arroyo++}else if(/Ferrocarril Provincial/i.test(n)){addWay(e,'ferrocarril','Ferrocarril Provincial');counts.ferrocarril++}}
+  document.getElementById('status').innerHTML=`<b>Bordes cargados desde OSM.</b><br>Donato: ${counts.donato} tramos · San Martín: ${counts.sanmartin} · Arroyo: ${counts.arroyo} · Ferrocarril: ${counts.ferrocarril}.`;
+  document.getElementById('loading').style.display='none';
+  if(layers.length)map.fitBounds(L.featureGroup(layers).getBounds(),{padding:[45,45]});
+ }catch(err){console.error(err);document.getElementById('loading').textContent='No se pudieron cargar los bordes. Recargá para reintentar.';document.getElementById('status').innerHTML='<b>OSM no respondió.</b> La vista volverá a intentarlo al recargar.'}
+}
+document.getElementById('fit').onclick=()=>{if(layers.length)map.fitBounds(L.featureGroup(layers).getBounds(),{padding:[45,45]})};
+load();
+</script>
+</body>
+</html>
