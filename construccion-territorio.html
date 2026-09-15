@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro Solano · construcción del territorio</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,sans-serif}
+.panel{position:absolute;z-index:1000;left:14px;top:14px;width:350px;background:#fff;border:1px solid #d9dee7;border-radius:16px;padding:15px 17px;box-shadow:0 8px 30px #0002}
+h2{margin:0 0 6px;font-size:19px}.sub{font-size:12px;color:#667085;line-height:1.45}.box{margin-top:9px;background:#f7f9fc;border:1px solid #e2e7ef;border-radius:10px;padding:10px;font-size:12px;line-height:1.5}.ok{background:#ecfdf3;border-color:#b7ebc9}.legend{margin-top:8px;font-size:11px;color:#667085}.tag{display:inline-block;padding:3px 7px;border-radius:999px;background:#eef2f7;margin:2px 3px 2px 0}button{border:1px solid #d0d5dd;background:#fff;border-radius:8px;padding:7px 10px;font-weight:700;cursor:pointer;margin-top:9px}
+</style></head>
+<body><div id="map"></div>
+<div class="panel">
+<h2>Centro Solano · construcción</h2>
+<div class="sub">Base de trabajo georreferenciada a partir de la línea roja que validaste sobre el mapa. Esta línea es la referencia del proyecto; OSM se usa para llevarla a calles reales.</div>
+<div class="box ok"><b>Perímetro maestro cargado.</b><br>Ahora queda preparado el interior para comenzar la división en territorios y manzanas.</div>
+<div class="box"><b>Referencias que se van a respetar</b><br><span class="tag">Donato Álvarez</span><span class="tag">Arroyo Las Piedras</span><span class="tag">Ferrocarril Provincial</span><span class="tag">850 / 849</span><span class="tag">Monteverde</span></div>
+<button id="fit">Ajustar al territorio</button>
+<div id="status" class="legend">Cargando calles reales de OpenStreetMap…</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([-34.7798,-58.315],15);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(map);
+// Línea roja digitizada de la captura validada por el usuario, convertida a coordenadas Web Mercator.
+const perimeter=[
+[-34.77736,-58.32495],[-34.77957,-58.32284],[-34.78296,-58.31899],[-34.78695,-58.30744],[-34.78517,-58.30586],[-34.77879,-58.30750],[-34.77716,-58.30822],[-34.77298,-58.30918],[-34.77275,-58.31625],[-34.77343,-58.32038],[-34.77580,-58.32214]
+];
+const poly=L.polygon(perimeter,{color:'#ef233c',weight:5,fillColor:'#ef233c',fillOpacity:.07}).addTo(map);
+poly.bindTooltip('Perímetro maestro · referencia validada',{sticky:true});
+map.fitBounds(poly.getBounds(),{padding:[45,45]});
+document.getElementById('fit').onclick=()=>map.fitBounds(poly.getBounds(),{padding:[45,45]});
+
+async function loadRoads(){
+ const q='[out:json][timeout:45];way["highway"](-34.795,-58.33,-34.768,-58.300);out tags geom;';
+ try{
+  const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));
+  if(!r.ok)throw new Error('Overpass '+r.status);
+  const d=await r.json(); let count=0;
+  for(const w of d.elements||[]){
+   if(!w.geometry||!w.tags)continue;
+   const g=w.geometry.map(p=>[p.lat,p.lon]);
+   const inside=g.some(p=>L.latLngBounds(poly.getBounds()).contains(p));
+   if(!inside)continue;
+   const cls=['primary','secondary','tertiary','residential','unclassified','living_street','service'].includes(w.tags.highway);
+   if(!cls)continue;
+   L.polyline(g,{color:'#667085',weight:w.tags.highway==='residential'?1.4:2,opacity:.55,interactive:false}).addTo(map);
+   count++;
+  }
+  document.getElementById('status').textContent='Trama vial real de OSM cargada: '+count+' ejes dentro/cercanos al perímetro. Próximo paso: identificar y asignar las manzanas del plano original.';
+ }catch(e){document.getElementById('status').textContent='El perímetro está cargado. OSM no respondió en esta carga; las calles base siguen visibles desde las teselas.';console.warn(e)}
+}
+loadRoads();
+</script></body></html>
