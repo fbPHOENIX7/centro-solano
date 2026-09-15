@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro Solano · T1–T13 · manzanas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,sans-serif}.panel{position:absolute;z-index:1000;left:14px;top:14px;width:370px;max-height:calc(100vh - 28px);overflow:auto;background:#fff;border:1px solid #d9dee7;border-radius:16px;padding:15px 17px;box-shadow:0 8px 30px #0002}.panel h2{margin:0 0 5px;font-size:19px}.sub{font-size:12px;color:#667085;line-height:1.45}.tags{margin:8px 0}.tag{display:inline-block;padding:4px 7px;margin:2px;background:#eef2f7;border-radius:7px;font-size:11px;font-weight:700}.box{margin-top:9px;background:#f7f9fc;border:1px solid #e2e7ef;border-radius:10px;padding:9px;font-size:11px;line-height:1.45}.ok{background:#ecfdf3;border-color:#b7ebc9}.warn{background:#fff7e6;border-color:#efd08a}.territories{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:8px}.territories button{border:1px solid #d0d5dd;background:#fff;border-radius:7px;padding:6px 3px;font-weight:800;font-size:11px;cursor:pointer}.territories button.active{background:#111827;color:#fff}.legend{font-size:11px;color:#667085;margin-top:8px}.block-label{background:#fff;border:1px solid #111827;border-radius:5px;padding:2px 4px;font-size:9px;font-weight:800;box-shadow:0 1px 4px #0003}.leaflet-tooltip.block-label:before{display:none}.ref{background:#fff;border:3px solid #111827;border-radius:50%;width:28px;height:28px;line-height:22px;text-align:center;font-weight:900;font-size:12px;box-shadow:0 2px 7px #0005}.small{font-size:10px;color:#667085}
+</style></head>
+<body><div id="map"></div><div class="panel">
+<h2>T1–T13 · manzanas reales</h2>
+<div class="sub">Esta etapa usa la red vial de OpenStreetMap para reconstruir candidatos de manzana. Los números T1–T13 siguen siendo referencias del plano original; todavía no se inventan límites territoriales.</div>
+<div class="tags"><span class="tag">OSM = geometría vial</span><span class="tag">PDF = lógica territorial</span><span class="tag">Norte del PDF → derecha</span></div>
+<div class="box"><b>Territorio seleccionado:</b> <span id="sel">T1</span><div class="territories" id="territories"></div></div>
+<div id="status" class="box warn">Cargando calles y reconstruyendo manzanas…</div>
+<div class="box"><b>Cómo se usa esta etapa</b><br>Las formas transparentes son manzanas cerradas detectadas a partir de la trama vial real. Al tocar una, queda asociada al territorio seleccionado. La asociación se guarda en este navegador.</div>
+<div class="legend">Referencias viales de esta zona: Av. Monteverde, 893 Bis, 893, 894, 892 Bis y 892. Las fuentes externas confirman, entre otras, los cruces Monteverde/893 y Monteverde/893 Bis. citeturn3search0turn3search1</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+<script>
+const map=L.map('map').setView([-34.7802,-58.3095],16.3);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const pts={T1:[-34.78035,-58.31260],T2:[-34.78005,-58.31085],T3:[-34.77972,-58.30905],T4:[-34.77942,-58.30725],T5:[-34.77912,-58.30555],T6:[-34.78100,-58.30720],T7:[-34.78072,-58.30550],T8:[-34.78218,-58.31205],T9:[-34.78198,-58.31025],T10:[-34.78170,-58.30845],T11:[-34.78148,-58.30670],T12:[-34.78127,-58.30490],T13:[-34.78100,-58.30320]};
+let selected='T1', blocks=[], assigned=JSON.parse(localStorage.getItem('centroSolanoAssignments')||'{}');
+const refLayer=L.layerGroup().addTo(map), blockLayer=L.layerGroup().addTo(map);
+Object.entries(pts).forEach(([id,p])=>L.marker(p,{icon:L.divIcon({className:'',html:'<div class="ref">'+id.slice(1)+'</div>',iconSize:[28,28],iconAnchor:[14,14]})}).bindTooltip(id,{direction:'top'}).addTo(refLayer));
+const tbox=document.getElementById('territories');for(let i=1;i<=13;i++){const b=document.createElement('button');b.textContent='T'+i;b.onclick=()=>{selected='T'+i;document.getElementById('sel').textContent=selected;document.querySelectorAll('.territories button').forEach(x=>x.classList.toggle('active',x.textContent===selected));renderBlocks()};tbox.appendChild(b)}document.querySelector('.territories button').classList.add('active');
+function ownerOf(id){for(const [t,arr] of Object.entries(assigned))if(arr.includes(id))return t;return null}
+function renderBlocks(){blockLayer.clearLayers();blocks.forEach((poly,i)=>{const id='B'+String(i+1).padStart(3,'0');const owner=ownerOf(id);const active=owner===selected;const layer=L.geoJSON(poly,{style:{color:active?'#111827':owner?'#94a3b8':'#2563eb',weight:active?3:1.5,fillColor:active?'#111827':owner?'#cbd5e1':'#3b82f6',fillOpacity:active?.28:owner?.10:.16}}).addTo(blockLayer);layer.bindTooltip(id+(owner?' · '+owner:''),{sticky:true,className:'block-label'});layer.on('click',e=>{L.DomEvent.stopPropagation(e);const prev=ownerOf(id);if(prev&&prev!==selected){assigned[prev]=(assigned[prev]||[]).filter(x=>x!==id)}assigned[selected]=assigned[selected]||[];if(!assigned[selected].includes(id))assigned[selected].push(id);localStorage.setItem('centroSolanoAssignments',JSON.stringify(assigned));renderBlocks();updateStatus()});});}
+function updateStatus(){const n=(assigned[selected]||[]).length;document.getElementById('status').className='box '+(n?'ok':'warn');document.getElementById('status').innerHTML='<b>'+selected+': '+n+' manzanas asociadas.</b><br>Las asociaciones son editables y quedan guardadas localmente.'}
+async function load(){
+const q='[out:json][timeout:60];way["highway"](-34.786,-58.322,-34.773,-58.298);out geom;';
+const u='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q);const r=await fetch(u);if(!r.ok)throw new Error('Overpass '+r.status);const d=await r.json();
+const lines=[];d.elements.forEach(w=>{if(!w.geometry||w.geometry.length<2)return;const coords=w.geometry.map(p=>[p.lon,p.lat]);try{lines.push(turf.lineString(coords,{name:w.tags?.name||'',highway:w.tags?.highway||''}))}catch(e){}});
+const fc=turf.featureCollection(lines);const merged=turf.lineMerge(fc);const network=turf.featureCollection(merged.features||[]);let polys=[];try{const p=turf.polygonize(network);polys=p.features.filter(f=>{const area=turf.area(f);const c=turf.centroid(f);const [x,y]=c.geometry.coordinates;return area>800&&area<100000&&x>-58.322&&x<-58.298&&y>-34.786&&y<-34.773});}catch(e){throw new Error('No se pudieron cerrar las manzanas con la red OSM: '+e.message)}
+blocks=polys;renderBlocks();updateStatus();if(blocks.length)map.fitBounds(L.geoJSON(turf.featureCollection(blocks)).getBounds(),{padding:[50,50]});}
+load().catch(e=>{document.getElementById('status').innerHTML='<b>No se pudo reconstruir la red en este momento.</b><br>'+e.message+'<br><span class="small">Las referencias T1–T13 quedan visibles igualmente.</span>';});
+</script></body></html>
