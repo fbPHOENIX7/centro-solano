@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro Solano · T1/T2 georreferenciados</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,sans-serif}.panel{position:absolute;z-index:1000;top:14px;left:14px;background:#fff;border:1px solid #ddd;border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px #0002;width:300px}.panel h2{margin:0 0 4px;font-size:18px}.panel p{margin:5px 0;color:#667085;font-size:12px;line-height:1.4}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tag{padding:6px 9px;border-radius:8px;font-weight:800;font-size:12px}.t1{background:#d7dce2;border:1px solid #6b7280}.t2{background:#bfe8ce;border:1px solid #168052}.status{margin-top:10px;padding:8px 10px;background:#fff7e6;border:1px solid #f0d49a;border-radius:9px;font-size:11px;color:#795b18}.leaflet-tooltip{font-weight:800}.block{transition:.15s}.block:hover{fill-opacity:.8}.done{fill:#25a96a!important}.pending{fill:#d8c5e8!important}
+</style></head>
+<body>
+<div id="map"></div>
+<div class="panel"><h2>T1 + T2 · primera georreferenciación</h2><p>Base cartográfica real de OpenStreetMap. Las formas están trazadas siguiendo la orientación de las manzanas de la zona y se presentan como <b>borrador de validación</b> contra el plano original.</p><div class="legend"><span class="tag t1">T1 · 5 manzanas</span><span class="tag t2">T2 · 6 manzanas</span></div><div class="status">Criterio de letras: izquierda → derecha / arriba → abajo. Hacé clic en una manzana para marcarla completada.</div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([-34.7793,-58.3110],17);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const saved=JSON.parse(localStorage.getItem('cst-status')||'{}');
+// Borrador construido sobre la orientación real de la trama vial alrededor de 893/893 Bis/894 y Av. Monteverde.
+const shapes={
+'T1A':[[-34.77795,-58.31335],[-34.77782,-58.31295],[-34.77802,-58.31272],[-34.77822,-58.31295]],
+'T1B':[[-34.77822,-58.31295],[-34.77802,-58.31272],[-34.77842,-58.31195],[-34.77868,-58.31220],[-34.77855,-58.31272]],
+'T1C':[[-34.77802,-58.31272],[-34.77782,-58.31230],[-34.77818,-58.31165],[-34.77842,-58.31195]],
+'T1D':[[-34.77868,-58.31220],[-34.77842,-58.31195],[-34.77882,-58.31118],[-34.77905,-58.31142]],
+'T1E':[[-34.77842,-58.31195],[-34.77818,-58.31165],[-34.77855,-58.31092],[-34.77882,-58.31118]],
+'T2A':[[-34.77760,-58.31230],[-34.77740,-58.31162],[-34.77788,-58.31130],[-34.77818,-58.31165],[-34.77782,-58.31230]],
+'T2B':[[-34.77740,-58.31162],[-34.77720,-58.31088],[-34.77772,-58.31055],[-34.77788,-58.31130]],
+'T2C':[[-34.77720,-58.31088],[-34.77700,-58.31018],[-34.77748,-58.30986],[-34.77772,-58.31055]],
+'T2D':[[-34.77818,-58.31165],[-34.77788,-58.31130],[-34.77820,-58.31070],[-34.77855,-58.31092]],
+'T2E':[[-34.77788,-58.31130],[-34.77772,-58.31055],[-34.77802,-58.30998],[-34.77820,-58.31070]],
+'T2F':[[-34.77772,-58.31055],[-34.77748,-58.30986],[-34.77778,-58.30940],[-34.77802,-58.30998]]
+};
+const layers={};
+Object.entries(shapes).forEach(([id,coords])=>{const territory=id[1];layers[id]=L.polygon(coords,{className:'block',color:territory==='1'?'#59636f':'#168052',weight:2,fillColor:territory==='1'?'#d7dce2':'#bfe8ce',fillOpacity:.62}).addTo(map).bindTooltip(id,{sticky:true});layers[id].on('click',()=>{saved[id]=!saved[id];localStorage.setItem('cst-status',JSON.stringify(saved));layers[id].setStyle({fillColor:saved[id]?'#25a96a':(territory==='1'?'#d7dce2':'#bfe8ce'),color:saved[id]?'#168052':(territory==='1'?'#59636f':'#168052')});layers[id].bindTooltip(saved[id]?id+' · COMPLETADA':id,{sticky:true});});if(saved[id])layers[id].setStyle({fillColor:'#25a96a',color:'#168052'})});
+L.marker([-34.7793,-58.3110]).addTo(map).bindPopup('<b>Zona T1/T2</b><br>Referencia de trabajo alrededor de Calle 893 / 893 Bis / 894 y Av. Monteverde.');
+</script></body></html>
