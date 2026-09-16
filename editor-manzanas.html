@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro Solano · Editor de manzanas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+<style>
+html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#eef2f6}
+.panel{position:absolute;z-index:1000;top:14px;left:14px;width:360px;max-height:calc(100vh - 28px);overflow:auto;background:#fff;border:1px solid #d9dee7;border-radius:15px;padding:15px;box-shadow:0 10px 30px #0002}
+h2{font-size:18px;margin:0 0 4px}.sub{font-size:12px;color:#667085;line-height:1.4;margin:0 0 12px}
+.row{display:flex;gap:7px;align-items:center;margin:7px 0}.row>*{min-width:0}label{font-size:11px;font-weight:800;color:#475467;display:block;margin-bottom:3px}.field{flex:1}
+select,input{box-sizing:border-box;width:100%;height:36px;border:1px solid #cfd5df;border-radius:8px;background:#fff;padding:0 9px;font-size:13px}
+button{border:1px solid #cfd5df;background:#fff;border-radius:8px;padding:8px 10px;font-weight:800;cursor:pointer}button:hover{background:#f5f7fa}.primary{background:#111827;color:#fff;border-color:#111827}.primary:hover{background:#1f2937}.danger{color:#b42318}
+.help{background:#f0f7ff;border:1px solid #c9e3fb;border-radius:10px;padding:10px;font-size:11px;line-height:1.45;color:#315a78;margin:10px 0}
+.status{background:#f8fafc;border:1px solid #e4e7ec;border-radius:10px;padding:9px;font-size:11px;line-height:1.4;margin:9px 0}
+.list{margin-top:10px;border-top:1px solid #eaecf0}.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid #eaecf0;font-size:12px}.badge{font-weight:900;border-radius:6px;padding:3px 6px;background:#e8f5e9;color:#166534}.muted{color:#667085}.mini{font-size:10px;color:#667085}
+.leaflet-tooltip.label{background:#fff;border:2px solid #111;font-weight:900;color:#111;box-shadow:0 2px 7px #0004}.leaflet-tooltip.label:before{display:none}
+#loading{position:absolute;z-index:1200;right:14px;top:14px;background:#fff;border:1px solid #ddd;border-radius:10px;padding:9px 12px;box-shadow:0 4px 16px #0002;font-size:12px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="loading">Cargando mapa…</div>
+<div class="panel">
+<h2>Editor de manzanas · Centro Solano</h2>
+<p class="sub">Marcá cada manzana directamente sobre OpenStreetMap. La forma la dibujás vos siguiendo las calles reales; después le asignás territorio y letra.</p>
+<div class="help"><b>Cómo usarlo:</b> elegí T y letra → apretá el ícono de polígono del mapa → hacé clic en cada esquina de la manzana → doble clic/cerrá el polígono. Después queda guardada en este navegador.</div>
+<div class="row">
+<div class="field"><label>TERRITORIO</label><select id="territory"></select></div>
+<div style="width:92px"><label>LETRA</label><select id="letter"></select></div>
+</div>
+<div class="row"><div class="field"><label>REFERENCIA (opcional)</label><input id="note" placeholder="Ej.: esquina 893 y 844"></div></div>
+<div class="row">
+<button class="primary" id="focus">Ir al territorio</button>
+<button id="fit">Ver zona completa</button>
+</div>
+<div class="status" id="status">Preparado. Elegí un territorio y una letra y dibujá una manzana.</div>
+<div class="row">
+<button id="export">Exportar trabajo</button>
+<button id="importBtn">Importar</button>
+<button class="danger" id="clear">Borrar todo</button>
+<input id="file" type="file" accept="application/json" style="display:none">
+</div>
+<div class="mini">Las marcas se guardan en localStorage. Exportá el JSON periódicamente para tener una copia de seguridad.</div>
+<div class="list" id="list"></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script>
+const map=L.map('map',{preferCanvas:true}).setView([-34.7795,-58.3070],16);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const territoryRefs={1:[-34.7800,-58.3168],2:[-34.7793,-58.3160],3:[-34.7788,-58.3151],4:[-34.7786,-58.3142],5:[-34.7778,-58.3134],6:[-34.7790,-58.3133],7:[-34.7788,-58.3125],8:[-34.7780,-58.3122],9:[-34.7772,-58.3120],10:[-34.7764,-58.3118],11:[-34.7770,-58.3110],12:[-34.7780,-58.3108],13:[-34.7788,-58.3108],14:[-34.7770,-58.3102],15:[-34.7758,-58.3100],16:[-34.7752,-58.3096],17:[-34.7761,-58.3093],18:[-34.7770,-58.3092],19:[-34.7778,-58.3092],20:[-34.7760,-58.3084],21:[-34.7788,-58.3082],22:[-34.7780,-58.3076],23:[-34.7790,-58.3076],24:[-34.7798,-58.3074],25:[-34.7805,-58.3072],26:[-34.7812,-58.3070],27:[-34.7750,-58.3078],28:[-34.7752,-58.3068],29:[-34.7755,-58.3058],30:[-34.7760,-58.3050],31:[-34.7767,-58.3045],32:[-34.7770,-58.3065],33:[-34.7775,-58.3055],34:[-34.7780,-58.3048],35:[-34.7785,-58.3042],36:[-34.7786,-58.3060],37:[-34.7790,-58.3050],38:[-34.7794,-58.3044],39:[-34.7798,-58.3056],40:[-34.7803,-58.3049],41:[-34.7807,-58.3043],42:[-34.7810,-58.3055],43:[-34.7813,-58.3048],44:[-34.7817,-58.3042],45:[-34.7820,-58.3058],46:[-34.7824,-58.3051],47:[-34.7828,-58.3046],48:[-34.7830,-58.3039],49:[-34.7747,-58.3049],50:[-34.7752,-58.3041],51:[-34.7758,-58.3035],52:[-34.7765,-58.3032],53:[-34.7772,-58.3030],54:[-34.7744,-58.3028],55:[-34.7750,-58.3024],56:[-34.7758,-58.3020],57:[-34.7765,-58.3018],58:[-34.7773,-58.3015],59:[-34.7780,-58.3013],60:[-34.7787,-58.3010],61:[-34.7795,-58.3008],62:[-34.7802,-58.3005],63:[-34.7809,-58.3002],64:[-34.7817,-58.2999],65:[-34.7825,-58.2996],66:[-34.7832,-58.2993],67:[-34.7840,-58.2990]};
+const terr=document.getElementById('territory'), letter=document.getElementById('letter');
+for(let i=1;i<=67;i++){const o=document.createElement('option');o.value=i;o.textContent='T'+i;terr.appendChild(o)}
+for(let i=0;i<26;i++){const o=document.createElement('option');o.value=String.fromCharCode(65+i);o.textContent=String.fromCharCode(65+i);letter.appendChild(o)}
+const drawn=new L.FeatureGroup().addTo(map);
+const drawControl=new L.Control.Draw({position:'topright',draw:{polyline:false,rectangle:false,circle:false,circlemarker:false,marker:false,polygon:{allowIntersection:false,showArea:true,shapeOptions:{color:'#16a34a',weight:3,fillOpacity:.25}}},edit:{featureGroup:drawn,remove:true}});
+map.addControl(drawControl);
+const key='cst-manual-blocks-v1';
+let data=[];try{data=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){data=[]}
+function labelFor(d){return 'T'+d.territory+d.letter}
+function styleFor(d){return {color:'#166534',weight:3,fillColor:'#16a34a',fillOpacity:.25}}
+function save(){localStorage.setItem(key,JSON.stringify(data))}
+function renderItem(d,index){const el=document.createElement('div');el.className='item';el.innerHTML='<div><span class="badge">'+labelFor(d)+'</span> <span class="muted">'+(d.note||'')+'</span></div><button data-i="'+index+'">Ver</button>';el.querySelector('button').onclick=()=>{const layer=[...drawn.getLayers()][index];if(layer){map.fitBounds(layer.getBounds(),{padding:[80,80]});layer.openTooltip()}};return el}
+function refreshList(){const list=document.getElementById('list');list.innerHTML='';data.forEach((d,i)=>list.appendChild(renderItem(d,i)));document.getElementById('status').innerHTML='<b>'+data.length+'</b> manzanas marcadas. Se guardan automáticamente en este navegador.'}
+function addLayerFromData(d){const layer=L.geoJSON(d.geojson,{style:styleFor(d)});let lyr=layer.getLayers()[0];lyr.bindTooltip(labelFor(d),{permanent:true,direction:'center',className:'label'});drawn.addLayer(lyr);lyr._blockId=d.id;return lyr}
+for(const d of data){try{addLayerFromData(d)}catch(e){}}
+refreshList();
+map.on(L.Draw.Event.CREATED,e=>{
+ const terri=terr.value, letv=letter.value;
+ const duplicate=data.find(x=>String(x.territory)===String(terri)&&x.letter===letv);
+ if(duplicate){if(!confirm('Ya existe T'+terri+letv+'. ¿Querés reemplazarla?')){return}const idx=data.indexOf(duplicate);const old=[...drawn.getLayers()][idx];if(old)drawn.removeLayer(old);data.splice(idx,1)}
+ const gj=e.layer.toGeoJSON();const d={id:crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random(),territory:Number(terri),letter:letv,note:document.getElementById('note').value.trim(),geojson:gj};e.layer.setStyle(styleFor(d));e.layer.bindTooltip(labelFor(d),{permanent:true,direction:'center',className:'label'});drawn.addLayer(e.layer);data.push(d);save();document.getElementById('note').value='';refreshList();
+});
+map.on(L.Draw.Event.EDITED,e=>{e.layers.eachLayer(layer=>{const idx=[...drawn.getLayers()].indexOf(layer);if(idx>=0&&data[idx])data[idx].geojson=layer.toGeoJSON();});save();refreshList()});
+map.on(L.Draw.Event.DELETED,e=>{const deleted=[...e.layers.getLayers()];const remaining=[];for(const d of data){const found=deleted.some(l=>l._blockId===d.id);if(!found)remaining.push(d)}data=remaining;save();refreshList()});
+document.getElementById('focus').onclick=()=>{const p=territoryRefs[Number(terr.value)];if(p)map.setView(p,17)};
+document.getElementById('fit').onclick=()=>{map.setView([-34.7795,-58.3070],15.8)};
+document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringify({version:1,project:'Centro Solano',blocks:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='centro-solano-manzanas.json';a.click();URL.revokeObjectURL(a.href)};
+document.getElementById('importBtn').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(!Array.isArray(obj.blocks))throw Error('Formato inválido');drawn.clearLayers();data=obj.blocks;data.forEach(addLayerFromData);save();refreshList()}catch(err){alert('No se pudo importar el archivo: '+err.message)}e.target.value=''};
+document.getElementById('clear').onclick=()=>{if(confirm('Esto borra todas las manzanas dibujadas en este navegador. ¿Continuar?')){data=[];drawn.clearLayers();save();refreshList()}};
+document.getElementById('loading').textContent='Mapa listo';setTimeout(()=>document.getElementById('loading').style.display='none',1000);
+</script>
+</body>
+</html>
