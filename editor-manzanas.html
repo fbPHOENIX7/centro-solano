@@ -8,13 +8,14 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <style>
 html,body,#map{height:100%;margin:0}body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#eef2f6}
-.panel{position:absolute;z-index:1000;top:14px;left:14px;width:360px;max-height:calc(100vh - 28px);overflow:auto;background:#fff;border:1px solid #d9dee7;border-radius:15px;padding:15px;box-shadow:0 10px 30px #0002}
+.panel{position:absolute;z-index:1000;top:14px;left:14px;width:390px;max-height:calc(100vh - 28px);overflow:auto;background:#fff;border:1px solid #d9dee7;border-radius:15px;padding:15px;box-shadow:0 10px 30px #0002}
 h2{font-size:18px;margin:0 0 4px}.sub{font-size:12px;color:#667085;line-height:1.4;margin:0 0 12px}
 .row{display:flex;gap:7px;align-items:center;margin:7px 0}.row>*{min-width:0}label{font-size:11px;font-weight:800;color:#475467;display:block;margin-bottom:3px}.field{flex:1}
 select,input{box-sizing:border-box;width:100%;height:36px;border:1px solid #cfd5df;border-radius:8px;background:#fff;padding:0 9px;font-size:13px}
-button{border:1px solid #cfd5df;background:#fff;border-radius:8px;padding:8px 10px;font-weight:800;cursor:pointer}button:hover{background:#f5f7fa}.primary{background:#111827;color:#fff;border-color:#111827}.primary:hover{background:#1f2937}.danger{color:#b42318}
+button{border:1px solid #cfd5df;background:#fff;border-radius:8px;padding:8px 10px;font-weight:800;cursor:pointer}button:hover{background:#f5f7fa}.primary{background:#111827;color:#fff;border-color:#111827}.primary:hover{background:#1f2937}.danger{color:#b42318}.small{padding:6px 8px;font-size:11px}
 .help{background:#f0f7ff;border:1px solid #c9e3fb;border-radius:10px;padding:10px;font-size:11px;line-height:1.45;color:#315a78;margin:10px 0}
 .status{background:#f8fafc;border:1px solid #e4e7ec;border-radius:10px;padding:9px;font-size:11px;line-height:1.4;margin:9px 0}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.toolbar button:disabled{opacity:.45;cursor:not-allowed}
 .list{margin-top:10px;border-top:1px solid #eaecf0}.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid #eaecf0;font-size:12px}.badge{font-weight:900;border-radius:6px;padding:3px 6px;background:#e8f5e9;color:#166534}.muted{color:#667085}.mini{font-size:10px;color:#667085}
 .leaflet-tooltip.label{background:#fff;border:2px solid #111;font-weight:900;color:#111;box-shadow:0 2px 7px #0004}.leaflet-tooltip.label:before{display:none}
 #loading{position:absolute;z-index:1200;right:14px;top:14px;background:#fff;border:1px solid #ddd;border-radius:10px;padding:9px 12px;box-shadow:0 4px 16px #0002;font-size:12px}
@@ -25,8 +26,8 @@ button{border:1px solid #cfd5df;background:#fff;border-radius:8px;padding:8px 10
 <div id="loading">Cargando mapa…</div>
 <div class="panel">
 <h2>Editor de manzanas · Centro Solano</h2>
-<p class="sub">Marcá cada manzana directamente sobre OpenStreetMap. La forma la dibujás vos siguiendo las calles reales; después le asignás territorio y letra.</p>
-<div class="help"><b>Cómo usarlo:</b> elegí T y letra → apretá el ícono de polígono del mapa → hacé clic en cada esquina de la manzana → doble clic/cerrá el polígono. Después queda guardada en este navegador.</div>
+<p class="sub">Marcá cada manzana directamente sobre OpenStreetMap. La forma la dibujás vos siguiendo las calles reales; después podés cambiar territorio, letra o referencia en cualquier momento.</p>
+<div class="help"><b>Cómo usarlo:</b> elegí T y letra → apretá el ícono de polígono del mapa → hacé clic en cada esquina de la manzana → cerrá el polígono. Para corregir una ya creada, seleccionála en el mapa o en la lista y usá <b>Editar seleccionada</b>.</div>
 <div class="row">
 <div class="field"><label>TERRITORIO</label><select id="territory"></select></div>
 <div style="width:92px"><label>LETRA</label><select id="letter"></select></div>
@@ -36,6 +37,15 @@ button{border:1px solid #cfd5df;background:#fff;border-radius:8px;padding:8px 10
 <button class="primary" id="focus">Ir al territorio</button>
 <button id="fit">Ver zona completa</button>
 </div>
+<div class="toolbar">
+<button id="editSelected" disabled>Editar seleccionada</button>
+<button id="saveEdit" class="primary" disabled>Guardar cambios</button>
+<button id="cancelEdit" disabled>Cancelar</button>
+</div>
+<div class="toolbar">
+<button id="undo" disabled title="Ctrl+Z">↶ Deshacer</button>
+<button id="redo" disabled title="Ctrl+Y o Ctrl+Shift+Z">↷ Rehacer</button>
+</div>
 <div class="status" id="status">Preparado. Elegí un territorio y una letra y dibujá una manzana.</div>
 <div class="row">
 <button id="export">Exportar trabajo</button>
@@ -43,7 +53,7 @@ button{border:1px solid #cfd5df;background:#fff;border-radius:8px;padding:8px 10
 <button class="danger" id="clear">Borrar todo</button>
 <input id="file" type="file" accept="application/json" style="display:none">
 </div>
-<div class="mini">Las marcas se guardan en localStorage. Exportá el JSON periódicamente para tener una copia de seguridad.</div>
+<div class="mini">Las marcas se guardan en este navegador. Exportá el JSON periódicamente para tener una copia de seguridad.</div>
 <div class="list" id="list"></div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -60,28 +70,43 @@ const drawControl=new L.Control.Draw({position:'topright',draw:{polyline:false,r
 map.addControl(drawControl);
 const key='cst-manual-blocks-v1';
 let data=[];try{data=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){data=[]}
+let selectedId=null, editingId=null;
+let history=[], historyIndex=-1, restoring=false;
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function save(){localStorage.setItem(key,JSON.stringify(data))}
+function pushHistory(){if(restoring)return;const snap=clone(data);if(historyIndex>=0&&JSON.stringify(history[historyIndex])===JSON.stringify(snap))return;history=history.slice(0,historyIndex+1);history.push(snap);if(history.length>80)history.shift();historyIndex=history.length-1;updateHistoryButtons()}
+function updateHistoryButtons(){document.getElementById('undo').disabled=historyIndex<=0;document.getElementById('redo').disabled=historyIndex<0||historyIndex>=history.length-1}
+function setDataFromHistory(snap){restoring=true;data=clone(snap);drawn.clearLayers();for(const d of data){try{addLayerFromData(d)}catch(e){}}save();selectedId=null;editingId=null;setEditButtons();refreshList();restoring=false;updateHistoryButtons()}
 function labelFor(d){return 'T'+d.territory+d.letter}
 function styleFor(d){return {color:'#166534',weight:3,fillColor:'#16a34a',fillOpacity:.25}}
-function save(){localStorage.setItem(key,JSON.stringify(data))}
-function renderItem(d,index){const el=document.createElement('div');el.className='item';el.innerHTML='<div><span class="badge">'+labelFor(d)+'</span> <span class="muted">'+(d.note||'')+'</span></div><button data-i="'+index+'">Ver</button>';el.querySelector('button').onclick=()=>{const layer=[...drawn.getLayers()][index];if(layer){map.fitBounds(layer.getBounds(),{padding:[80,80]});layer.openTooltip()}};return el}
-function refreshList(){const list=document.getElementById('list');list.innerHTML='';data.forEach((d,i)=>list.appendChild(renderItem(d,i)));document.getElementById('status').innerHTML='<b>'+data.length+'</b> manzanas marcadas. Se guardan automáticamente en este navegador.'}
-function addLayerFromData(d){const layer=L.geoJSON(d.geojson,{style:styleFor(d)});let lyr=layer.getLayers()[0];lyr.bindTooltip(labelFor(d),{permanent:true,direction:'center',className:'label'});drawn.addLayer(lyr);lyr._blockId=d.id;return lyr}
+function findData(id){return data.find(d=>d.id===id)}
+function findLayer(id){return drawn.getLayers().find(l=>l._blockId===id)}
+function setSelected(id){selectedId=id||null;const d=findData(selectedId);if(d){terr.value=String(d.territory);letter.value=d.letter;document.getElementById('note').value=d.note||'';const l=findLayer(id);if(l){l.setStyle({weight:4,fillOpacity:.38});l.openTooltip()}}setEditButtons();refreshList()}
+function setEditButtons(){const has=!!selectedId;document.getElementById('editSelected').disabled=!has||!!editingId;document.getElementById('saveEdit').disabled=!editingId;document.getElementById('cancelEdit').disabled=!editingId}
+function startEdit(id=selectedId){if(!id)return;const d=findData(id);if(!d)return;selectedId=id;editingId=id;terr.value=String(d.territory);letter.value=d.letter;document.getElementById('note').value=d.note||'';const layer=findLayer(id);if(layer){layer.setStyle({weight:4,fillOpacity:.38});layer.openTooltip()}setEditButtons();document.getElementById('status').innerHTML='<b>Editando '+labelFor(d)+'</b>. Cambiá territorio, letra o referencia y luego guardá.'}
+function saveEdit(){if(!editingId)return;const d=findData(editingId);if(!d)return;const newTerr=Number(terr.value),newLetter=letter.value,newNote=document.getElementById('note').value.trim();const duplicate=data.find(x=>x.id!==editingId&&Number(x.territory)===newTerr&&x.letter===newLetter);if(duplicate){alert('Ya existe '+labelFor(duplicate)+'. Elegí otra combinación de territorio y letra.');return}d.territory=newTerr;d.letter=newLetter;d.note=newNote;const layer=findLayer(editingId);if(layer){layer.bindTooltip(labelFor(d),{permanent:true,direction:'center',className:'label'});layer.setStyle(styleFor(d))}editingId=null;selectedId=d.id;save();pushHistory();refreshList();setEditButtons();document.getElementById('status').innerHTML='<b>'+labelFor(d)+'</b> actualizado correctamente.'}
+function cancelEdit(){editingId=null;const d=findData(selectedId);if(d){terr.value=String(d.territory);letter.value=d.letter;document.getElementById('note').value=d.note||'';const layer=findLayer(d.id);if(layer)layer.setStyle(styleFor(d))}setEditButtons();refreshList()}
+function renderItem(d){const el=document.createElement('div');el.className='item';el.innerHTML='<div><span class="badge">'+labelFor(d)+'</span> <span class="muted">'+(d.note||'')+'</span></div><div style="display:flex;gap:4px"><button class="small" data-view="'+d.id+'">Ver</button><button class="small" data-edit="'+d.id+'">Editar</button></div>';el.querySelector('[data-view]').onclick=()=>{setSelected(d.id);const layer=findLayer(d.id);if(layer){map.fitBounds(layer.getBounds(),{padding:[80,80]});layer.openTooltip()}};el.querySelector('[data-edit]').onclick=()=>{setSelected(d.id);startEdit(d.id)};return el}
+function refreshList(){const list=document.getElementById('list');list.innerHTML='';data.forEach(d=>list.appendChild(renderItem(d)));document.getElementById('status').innerHTML='<b>'+data.length+'</b> manzanas marcadas. Se guardan automáticamente en este navegador.';setEditButtons()}
+function addLayerFromData(d){const layer=L.geoJSON(d.geojson,{style:styleFor(d)});const lyr=layer.getLayers()[0];lyr.bindTooltip(labelFor(d),{permanent:true,direction:'center',className:'label'});lyr._blockId=d.id;lyr.on('click',()=>setSelected(d.id));drawn.addLayer(lyr);return lyr}
 for(const d of data){try{addLayerFromData(d)}catch(e){}}
-refreshList();
-map.on(L.Draw.Event.CREATED,e=>{
- const terri=terr.value, letv=letter.value;
- const duplicate=data.find(x=>String(x.territory)===String(terri)&&x.letter===letv);
- if(duplicate){if(!confirm('Ya existe T'+terri+letv+'. ¿Querés reemplazarla?')){return}const idx=data.indexOf(duplicate);const old=[...drawn.getLayers()][idx];if(old)drawn.removeLayer(old);data.splice(idx,1)}
- const gj=e.layer.toGeoJSON();const d={id:crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random(),territory:Number(terri),letter:letv,note:document.getElementById('note').value.trim(),geojson:gj};e.layer.setStyle(styleFor(d));e.layer.bindTooltip(labelFor(d),{permanent:true,direction:'center',className:'label'});drawn.addLayer(e.layer);data.push(d);save();document.getElementById('note').value='';refreshList();
-});
-map.on(L.Draw.Event.EDITED,e=>{e.layers.eachLayer(layer=>{const idx=[...drawn.getLayers()].indexOf(layer);if(idx>=0&&data[idx])data[idx].geojson=layer.toGeoJSON();});save();refreshList()});
-map.on(L.Draw.Event.DELETED,e=>{const deleted=[...e.layers.getLayers()];const remaining=[];for(const d of data){const found=deleted.some(l=>l._blockId===d.id);if(!found)remaining.push(d)}data=remaining;save();refreshList()});
+pushHistory();refreshList();
+map.on(L.Draw.Event.CREATED,e=>{const terri=Number(terr.value),letv=letter.value;const duplicate=data.find(x=>Number(x.territory)===terri&&x.letter===letv);if(duplicate){if(!confirm('Ya existe T'+terri+letv+'. ¿Querés reemplazarla?')){return}removeById(duplicate.id,false)}const gj=e.layer.toGeoJSON();const d={id:crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random(),territory:terri,letter:letv,note:document.getElementById('note').value.trim(),geojson:gj};e.layer.setStyle(styleFor(d));e.layer.bindTooltip(labelFor(d),{permanent:true,direction:'center',className:'label'});e.layer._blockId=d.id;e.layer.on('click',()=>setSelected(d.id));drawn.addLayer(e.layer);data.push(d);selectedId=d.id;document.getElementById('note').value='';save();pushHistory();refreshList()});
+map.on(L.Draw.Event.EDITED,e=>{let changed=false;e.layers.eachLayer(layer=>{const id=layer._blockId;const d=findData(id);if(d){d.geojson=layer.toGeoJSON();changed=true}});if(changed){save();pushHistory();refreshList()}});
+map.on(L.Draw.Event.DELETED,e=>{let changed=false;e.layers.eachLayer(layer=>{if(layer._blockId){const before=data.length;data=data.filter(d=>d.id!==layer._blockId);if(data.length!==before)changed=true}});if(changed){if(editingId&&!findData(editingId))editingId=null;selectedId=null;save();pushHistory();refreshList()}});
+function removeById(id,record=true){const layer=findLayer(id);if(layer)drawn.removeLayer(layer);const before=data.length;data=data.filter(d=>d.id!==id);if(data.length!==before){save();if(record)pushHistory();refreshList()}}
+document.getElementById('editSelected').onclick=()=>startEdit();
+document.getElementById('saveEdit').onclick=saveEdit;
+document.getElementById('cancelEdit').onclick=cancelEdit;
+document.getElementById('undo').onclick=()=>{if(historyIndex<=0)return;historyIndex--;setDataFromHistory(history[historyIndex])};
+document.getElementById('redo').onclick=()=>{if(historyIndex>=history.length-1)return;historyIndex++;setDataFromHistory(history[historyIndex])};
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();document.getElementById('undo').click()}else if((e.ctrlKey||e.metaKey)&&(e.key.toLowerCase()==='y'||(e.shiftKey&&e.key.toLowerCase()==='z'))){e.preventDefault();document.getElementById('redo').click()}});
 document.getElementById('focus').onclick=()=>{const p=territoryRefs[Number(terr.value)];if(p)map.setView(p,17)};
 document.getElementById('fit').onclick=()=>{map.setView([-34.7795,-58.3070],15.8)};
-document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringify({version:1,project:'Centro Solano',blocks:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='centro-solano-manzanas.json';a.click();URL.revokeObjectURL(a.href)};
+document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringify({version:2,project:'Centro Solano',blocks:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='centro-solano-manzanas.json';a.click();URL.revokeObjectURL(a.href)};
 document.getElementById('importBtn').onclick=()=>document.getElementById('file').click();
-document.getElementById('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(!Array.isArray(obj.blocks))throw Error('Formato inválido');drawn.clearLayers();data=obj.blocks;data.forEach(addLayerFromData);save();refreshList()}catch(err){alert('No se pudo importar el archivo: '+err.message)}e.target.value=''};
-document.getElementById('clear').onclick=()=>{if(confirm('Esto borra todas las manzanas dibujadas en este navegador. ¿Continuar?')){data=[];drawn.clearLayers();save();refreshList()}};
+document.getElementById('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(!Array.isArray(obj.blocks))throw Error('Formato inválido');drawn.clearLayers();data=obj.blocks;data.forEach(d=>{if(!d.id)d.id=crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random();addLayerFromData(d)});save();history=[];historyIndex=-1;pushHistory();refreshList()}catch(err){alert('No se pudo importar el archivo: '+err.message)}e.target.value=''};
+document.getElementById('clear').onclick=()=>{if(!data.length)return;if(confirm('Esto borra todas las manzanas dibujadas en este navegador. ¿Continuar?')){data=[];drawn.clearLayers();selectedId=null;editingId=null;save();pushHistory();refreshList()}};
 document.getElementById('loading').textContent='Mapa listo';setTimeout(()=>document.getElementById('loading').style.display='none',1000);
 </script>
 </body>
