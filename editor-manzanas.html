@@ -27,7 +27,7 @@ button{border:1px solid #cfd5df;background:#fff;border-radius:8px;padding:8px 10
 <div class="panel">
 <h2>Editor de manzanas · Centro Solano</h2>
 <p class="sub">Marcá cada manzana directamente sobre OpenStreetMap. La forma la dibujás vos siguiendo las calles reales; después podés cambiar territorio, letra o referencia en cualquier momento.</p>
-<div class="help"><b>Cómo usarlo:</b> elegí T y letra → apretá el ícono de polígono del mapa → hacé clic en cada esquina de la manzana → cerrá el polígono. Para corregir una ya creada, seleccionála en el mapa o en la lista y usá <b>Editar seleccionada</b>.</div>
+<div class="help"><b>Límite maestro:</b> la zona de trabajo se referencia sobre OSM con Donato Álvarez, Av. San Martín, Arroyo Las Piedras, Av. Monteverde y Av. Ferrocarril Provincial. Esta capa es de referencia y no se modifica al dibujar manzanas.</div><div class="help"><b>Cómo usarlo:</b> elegí T y letra → apretá el ícono de polígono del mapa → hacé clic en cada esquina de la manzana → cerrá el polígono. Para corregir una ya creada, seleccionála en el mapa o en la lista y usá <b>Editar seleccionada</b>.</div>
 <div class="row">
 <div class="field"><label>TERRITORIO</label><select id="territory"></select></div>
 <div style="width:92px"><label>LETRA</label><select id="letter"></select></div>
@@ -65,9 +65,10 @@ const territoryRefs={1:[-34.7800,-58.3168],2:[-34.7793,-58.3160],3:[-34.7788,-58
 const terr=document.getElementById('territory'), letter=document.getElementById('letter');
 for(let i=1;i<=67;i++){const o=document.createElement('option');o.value=i;o.textContent='T'+i;terr.appendChild(o)}
 for(let i=0;i<26;i++){const o=document.createElement('option');o.value=String.fromCharCode(65+i);o.textContent=String.fromCharCode(65+i);letter.appendChild(o)}
-const drawn=new L.FeatureGroup().addTo(map);
+const drawn=new L.FeatureGroup().addTo(map); const boundaryLayer=L.layerGroup().addTo(map);
 const drawControl=new L.Control.Draw({position:'topright',draw:{polyline:false,rectangle:false,circle:false,circlemarker:false,marker:false,polygon:{allowIntersection:false,showArea:true,shapeOptions:{color:'#16a34a',weight:3,fillOpacity:.25}}},edit:{featureGroup:drawn,remove:true}});
 map.addControl(drawControl);
+async function loadBoundaryReferences(){const q='[out:json][timeout:60];(way[\"highway\"][\"name\"~\"Donato Alvarez|General San Martín|San Martín|Arroyo Las Piedras|Gobernador Monteverde|Ferrocarril Provincial\",i](-34.790,-58.325,-34.760,-58.290););out geom;';try{const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));if(!r.ok)throw Error('OSM '+r.status);const j=await r.json();j.elements.forEach(w=>{if(!w.geometry||w.geometry.length<2)return;const pts=w.geometry.map(p=>[p.lat,p.lon]);const n=(w.tags&&w.tags.name)||'';let color='#eab308';if(/arroyo/i.test(n))color='#0ea5e9';else if(/san mart[ií]n/i.test(n))color='#dc2626';else if(/monteverde/i.test(n))color='#7c3aed';else if(/ferrocarril/i.test(n))color='#16a34a';L.polyline(pts,{color,weight:5,opacity:.78,dashArray:'10 7'}).bindTooltip('Límite/ref. · '+n).addTo(boundaryLayer)});document.getElementById('status').innerHTML='<b>Límites de referencia cargados desde OSM.</b> Las manzanas se dibujan dentro de esta zona.'}catch(e){document.getElementById('status').innerHTML='No se pudieron cargar las referencias de límite: '+e.message}}
 const key='cst-manual-blocks-v1';
 let data=[];try{data=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){data=[]}
 let selectedId=null, editingId=null;
@@ -107,7 +108,7 @@ document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringi
 document.getElementById('importBtn').onclick=()=>document.getElementById('file').click();
 document.getElementById('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(!Array.isArray(obj.blocks))throw Error('Formato inválido');drawn.clearLayers();data=obj.blocks;data.forEach(d=>{if(!d.id)d.id=crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random();addLayerFromData(d)});save();history=[];historyIndex=-1;pushHistory();refreshList()}catch(err){alert('No se pudo importar el archivo: '+err.message)}e.target.value=''};
 document.getElementById('clear').onclick=()=>{if(!data.length)return;if(confirm('Esto borra todas las manzanas dibujadas en este navegador. ¿Continuar?')){data=[];drawn.clearLayers();selectedId=null;editingId=null;save();pushHistory();refreshList()}};
-document.getElementById('loading').textContent='Mapa listo';setTimeout(()=>document.getElementById('loading').style.display='none',1000);
+loadBoundaryReferences(); document.getElementById('loading').textContent='Mapa listo';setTimeout(()=>document.getElementById('loading').style.display='none',1000);
 </script>
 </body>
 </html>
